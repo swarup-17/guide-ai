@@ -84,30 +84,89 @@ export default function ResumeBuilder({ initialContent }) {
   const getContactMarkdown = () => {
     const { contactInfo } = formValues;
     const parts = [];
-    if (contactInfo.email) parts.push(`📧 ${contactInfo.email}`);
-    if (contactInfo.mobile) parts.push(`📱 ${contactInfo.mobile}`);
+    if (contactInfo.email) parts.push(`Email: ${contactInfo.email}`);
+    if (contactInfo.mobile) parts.push(`Phone: ${contactInfo.mobile}`);
     if (contactInfo.linkedin)
-      parts.push(`💼 [LinkedIn](${contactInfo.linkedin})`);
-    if (contactInfo.twitter) parts.push(`🐦 [Twitter](${contactInfo.twitter})`);
+      parts.push(
+        `LinkedIn: [${contactInfo.linkedin.replace(
+          /https?:\/\/(www\.)?linkedin\.com\/in\//,
+          ""
+        )}](${contactInfo.linkedin})`
+      );
+    if (contactInfo.twitter)
+      parts.push(
+        `Twitter: [${contactInfo.twitter.replace(
+          /https?:\/\/(www\.)?twitter\.com\//,
+          "@"
+        )}](${contactInfo.twitter})`
+      );
 
     return parts.length > 0
-      ? `## <div align="center">${user.fullName}</div>
-        \n\n<div align="center">\n\n${parts.join(" | ")}\n\n</div>`
+      ? `# ${user.fullName}
+        \n\n<div class="contact-info">\n${parts
+          .map((part) => `${part}`)
+          .join(" • ")}\n</div>`
       : "";
   };
 
   const getCombinedContent = () => {
     const { summary, skills, experience, education, projects } = formValues;
+
+    // Format skills as a bullet list
+    const formattedSkills = skills
+      ? `## Skills\n\n${skills
+          .split(",")
+          .map((skill) => `• ${skill.trim()}`)
+          .join("\n")}`
+      : "";
+
     return [
       getContactMarkdown(),
       summary && `## Professional Summary\n\n${summary}`,
-      skills && `## Skills\n\n${skills}`,
-      entriesToMarkdown(experience, "Work Experience"),
-      entriesToMarkdown(education, "Education"),
-      entriesToMarkdown(projects, "Projects"),
+      formattedSkills,
+      formatEntries(experience, "Work Experience"),
+      formatEntries(education, "Education"),
+      formatEntries(projects, "Projects"),
     ]
       .filter(Boolean)
       .join("\n\n");
+  };
+
+  // New helper function for formatting entries with modern styling
+  const formatEntries = (entries, title) => {
+    if (!entries || entries.length === 0) return "";
+
+    const entriesMarkdown = entries
+      .map((entry) => {
+        const headerLine = `### ${entry.title}${
+          entry.organization ? ` | ${entry.organization}` : ""
+        }`;
+        const dateLine =
+          entry.startDate && entry.endDate
+            ? `*${entry.startDate} - ${entry.endDate}*${
+                entry.location ? ` | ${entry.location}` : ""
+              }`
+            : "";
+
+        // Format description as a bullet list if it contains multiple lines
+        let description = "";
+        if (entry.description) {
+          if (entry.description.includes("\n")) {
+            description = entry.description
+              .split("\n")
+              .filter((line) => line.trim())
+              .map((line) => `• ${line.trim()}`)
+              .join("\n");
+          } else {
+            description = entry.description;
+          }
+        }
+
+        return [headerLine, dateLine, description].filter(Boolean).join("\n\n");
+      })
+      .join("\n\n---\n\n");
+
+    return `## ${title}\n\n${entriesMarkdown}`;
   };
 
   const [isGenerating, setIsGenerating] = useState(false);

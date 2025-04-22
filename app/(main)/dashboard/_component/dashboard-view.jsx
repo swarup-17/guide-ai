@@ -66,12 +66,24 @@ const DashboardView = ({ insights }) => {
   const OutlookIcon = getMarketOutlookInfo(insights.marketOutlook).icon;
   const outlookColor = getMarketOutlookInfo(insights.marketOutlook).color;
 
-  // Format dates using date-fns
-  const lastUpdatedDate = format(new Date(insights.lastUpdated), "dd/MM/yyyy");
-  const nextUpdateDistance = formatDistanceToNow(
-    new Date(insights.nextUpdate),
-    { addSuffix: true }
-  );
+  // Check if dates exist before formatting
+  let lastUpdatedDate = "N/A";
+  let nextUpdateDistance = "N/A";
+
+  if (insights.lastUpdated) {
+    lastUpdatedDate = format(new Date(insights.lastUpdated), "dd/MM/yyyy");
+  }
+
+  if (insights.nextUpdate) {
+    try {
+      nextUpdateDistance = formatDistanceToNow(new Date(insights.nextUpdate), {
+        addSuffix: true,
+      });
+    } catch (error) {
+      console.error("Error formatting next update date", error);
+      nextUpdateDistance = "soon";
+    }
+  }
 
   return (
     <div className="space-y-6">

@@ -34,8 +34,6 @@ CREATE TABLE "Resume" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "content" TEXT NOT NULL,
-    "atsScore" DOUBLE PRECISION,
-    "feedback" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 

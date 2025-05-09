@@ -76,14 +76,15 @@ export async function improveWithAI({ current, type }) {
     Current content: "${current}"
 
     Requirements:
-    1. Use action verbs
-    2. Include metrics and results where possible
-    3. Highlight relevant technical skills
-    4. Keep it concise but detailed
-    5. Focus on achievements over responsibilities
-    6. Use industry-specific keywords
-    
-    Format the response as a single paragraph without any additional text or explanations.
+    Use action verbs
+    Include metrics and results where possible
+    Highlight relevant technical skills
+    Keep it concise but detailed
+    Focus on achievements over responsibilities
+    Use industry-specific keywords
+
+    Format:
+    Return the output as 3–4 bullet points, with no extra spaces, explanations, or introductory text—just the bullet points.
   `;
 
   try {

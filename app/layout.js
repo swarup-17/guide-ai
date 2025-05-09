@@ -27,7 +27,7 @@ export default function RootLayout({ children }) {
         <head>
           <link rel="icon" href="/favicon.png" sizes="any" />
         </head>
-        <body className={`${poppins.className}`}>
+        <body className={poppins.className}>
           <ThemeProvider
             attribute="class"
             defaultTheme="dark"

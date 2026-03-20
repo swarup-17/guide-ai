@@ -19,48 +19,26 @@ export async function updateUser(data) {
     // Start a transaction to handle both operations
     const result = await db.$transaction(
       async (tx) => {
-        // First check if the user already has industry insights
-        const existingUserInsight = await tx.industryInsight.findFirst({
+        // Check if the target industry currently has insights generated
+        let industryInsight = await tx.industryInsight.findUnique({
           where: {
-            userId: user.id,
+            industry: data.industry,
           },
         });
 
-        let industryInsight;
-
-        if (
-          existingUserInsight &&
-          existingUserInsight.industry === data.industry
-        ) {
-          // Keep existing insights if industry hasn't changed
-          industryInsight = existingUserInsight;
-        } else {
+        if (!industryInsight) {
           // Generate new insights for the selected industry
           const insights = await generateAIInsights(data.industry);
 
-          if (existingUserInsight) {
-            // Update existing user insights if industry changed
-            industryInsight = await tx.industryInsight.update({
-              where: { id: existingUserInsight.id },
-              data: {
-                industry: data.industry,
-                ...insights,
-                lastUpdated: new Date(),
-                nextUpdate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-              },
-            });
-          } else {
-            // Create new user insights
-            industryInsight = await tx.industryInsight.create({
-              data: {
-                industry: data.industry,
-                ...insights,
-                lastUpdated: new Date(),
-                nextUpdate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-                userId: user.id,
-              },
-            });
-          }
+          // Create new industry insights (shared across users in this industry)
+          industryInsight = await tx.industryInsight.create({
+            data: {
+              industry: data.industry,
+              ...insights,
+              lastUpdated: new Date(),
+              nextUpdate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            },
+          });
         }
 
         // Now update the user

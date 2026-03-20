@@ -40,7 +40,7 @@ export default function RootLayout({ children }) {
 
             <footer className="bg-muted/50 py-12">
               <div className="container mx-auto px-4 text-center text-gray-500">
-                <p>©2025 Guide-AI, Inc.</p>
+                <p>@{new Date().getFullYear()} Guide-AI, Inc.</p>
               </div>
               {/* <div className="container mx-auto px-4 text-center text-gray-200">
                 <p>Made with 💗 by Swarup</p>

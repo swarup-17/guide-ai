@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import MDEditor from "@uiw/react-md-editor";
+import ReactMarkdown from "react-markdown";
+import rehypeRaw from "rehype-raw";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -21,13 +23,11 @@ import { saveResume } from "@/actions/resume";
 import { EntryForm } from "./entry-form";
 import useFetch from "@/hooks/use-fetch";
 import { useUser } from "@clerk/nextjs";
-import { entriesToMarkdown } from "@/app/lib/helper";
 import { resumeSchema } from "@/app/lib/schema";
-import html2pdf from "html2pdf.js/dist/html2pdf.min.js";
 
 export default function ResumeBuilder({ initialContent }) {
   const [activeTab, setActiveTab] = useState("edit");
-  const [previewContent, setPreviewContent] = useState(initialContent);
+  const [previewContent, setPreviewContent] = useState(initialContent?.content);
   const { user } = useUser();
   const [resumeMode, setResumeMode] = useState("preview");
 
@@ -37,9 +37,10 @@ export default function ResumeBuilder({ initialContent }) {
     handleSubmit,
     watch,
     formState: { errors },
+    reset,
   } = useForm({
     resolver: zodResolver(resumeSchema),
-    defaultValues: {
+    defaultValues: initialContent?.formdata || {
       contactInfo: {},
       summary: "",
       skills: "",
@@ -49,6 +50,15 @@ export default function ResumeBuilder({ initialContent }) {
     },
   });
 
+  useEffect(() => {
+    if (initialContent?.formdata) {
+      reset(initialContent.formdata);
+    }
+    if (initialContent?.content) {
+      setPreviewContent(initialContent.content);
+    }
+  }, [initialContent, reset]);
+
   const {
     loading: isSaving,
     fn: saveResumeFn,
@@ -56,22 +66,19 @@ export default function ResumeBuilder({ initialContent }) {
     error: saveError,
   } = useFetch(saveResume);
 
-  // Watch form fields for preview updates
   const formValues = watch();
 
   useEffect(() => {
     if (initialContent) setActiveTab("preview");
   }, [initialContent]);
 
-  // Update preview content when form values change
   useEffect(() => {
     if (activeTab === "edit") {
       const newContent = getCombinedContent();
-      setPreviewContent(newContent ? newContent : initialContent);
+      setPreviewContent(newContent ? newContent : initialContent?.content);
     }
   }, [formValues, activeTab]);
 
-  // Handle save result
   useEffect(() => {
     if (saveResult && !isSaving) {
       toast.success("Resume saved successfully!");
@@ -87,37 +94,24 @@ export default function ResumeBuilder({ initialContent }) {
     if (contactInfo.email) parts.push(`Email: ${contactInfo.email}`);
     if (contactInfo.mobile) parts.push(`Phone: ${contactInfo.mobile}`);
     if (contactInfo.linkedin)
-      parts.push(
-        `LinkedIn: [${contactInfo.linkedin.replace(
-          /https?:\/\/(www\.)?linkedin\.com\/in\//,
-          ""
-        )}](${contactInfo.linkedin})`
-      );
-    if (contactInfo.twitter)
-      parts.push(
-        `Twitter: [${contactInfo.twitter.replace(
-          /https?:\/\/(www\.)?twitter\.com\//,
-          "@"
-        )}](${contactInfo.twitter})`
-      );
+      parts.push(`[LinkedIn](${contactInfo.linkedin})`);
+    if (contactInfo.github)
+      parts.push(`[GitHub](${contactInfo.github})`);
 
     return parts.length > 0
-      ? `# ${user.fullName}
-        \n\n<div class="contact-info">\n${parts
-          .map((part) => `${part}`)
-          .join(" • ")}\n</div>`
+      ? `# ${user.fullName}\n\n${parts.join(" • ")}`
       : "";
   };
 
   const getCombinedContent = () => {
     const { summary, skills, experience, education, projects } = formValues;
 
-    // Format skills as a bullet list
     const formattedSkills = skills
-      ? `## Skills\n\n${skills
+      ? `## Skills\n\n<p class="skills-list">${skills
           .split(",")
-          .map((skill) => `• ${skill.trim()}`)
-          .join("\n")}`
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .join(", ")}</p>`
       : "";
 
     return [
@@ -132,41 +126,43 @@ export default function ResumeBuilder({ initialContent }) {
       .join("\n\n");
   };
 
-  // New helper function for formatting entries with modern styling
   const formatEntries = (entries, title) => {
     if (!entries || entries.length === 0) return "";
 
-    const entriesMarkdown = entries
+    const entriesHtml = entries
       .map((entry) => {
-        const headerLine = `### ${entry.title}${
+        const titleText = `${entry.title}${
           entry.organization ? ` | ${entry.organization}` : ""
         }`;
-        const dateLine =
+        const dateText =
           entry.startDate && entry.endDate
-            ? `*${entry.startDate} - ${entry.endDate}*${
+            ? `${entry.startDate} – ${entry.endDate}${
                 entry.location ? ` | ${entry.location}` : ""
               }`
             : "";
 
-        // Format description as a bullet list if it contains multiple lines
-        let description = "";
+        let descriptionHtml = "";
         if (entry.description) {
-          if (entry.description.includes("\n")) {
-            description = entry.description
-              .split("\n")
-              .filter((line) => line.trim())
-              .map((line) => `• ${line.trim()}`)
-              .join("\n");
-          } else {
-            description = entry.description;
+          const lines = entry.description
+            .split("\n")
+            .map((l) => l.trim())
+            .filter(Boolean)
+            .map((l) => l.replace(/^[-•·]\s*/, ""));
+
+          if (lines.length > 1) {
+            descriptionHtml = `<ul>${lines
+              .map((l) => `<li>${l}</li>`)
+              .join("")}</ul>`;
+          } else if (lines.length === 1) {
+            descriptionHtml = `<p>${lines[0]}</p>`;
           }
         }
 
-        return [headerLine, dateLine, description].filter(Boolean).join("\n\n");
+        return `<div class="entry"><div class="entry-left"><strong>${titleText}</strong>${descriptionHtml}</div><div class="entry-date">${dateText}</div></div>`;
       })
-      .join("\n\n---\n\n");
+      .join("\n");
 
-    return `## ${title}\n\n${entriesMarkdown}`;
+    return `## ${title}\n\n${entriesHtml}`;
   };
 
   const [isGenerating, setIsGenerating] = useState(false);
@@ -176,13 +172,15 @@ export default function ResumeBuilder({ initialContent }) {
     try {
       const element = document.getElementById("resume-pdf");
       const opt = {
-        margin: [15, 15],
+        margin: [12, 14],
         filename: "resume.pdf",
         image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2 },
+        html2canvas: { scale: 2, useCORS: true },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
       };
 
+      const html2pdf = (await import("html2pdf.js/dist/html2pdf.min.js"))
+        .default;
       await html2pdf().set(opt).from(element).save();
     } catch (error) {
       console.error("PDF generation error:", error);
@@ -193,13 +191,7 @@ export default function ResumeBuilder({ initialContent }) {
 
   const onSubmit = async (data) => {
     try {
-      const formattedContent = previewContent
-        .replace(/\n/g, "\n") // Normalize newlines
-        .replace(/\n\s*\n/g, "\n\n") // Normalize multiple newlines to double newlines
-        .trim();
-
-      console.log(previewContent, formattedContent);
-      await saveResumeFn(previewContent);
+      await saveResumeFn(previewContent, data);
     } catch (error) {
       console.error("Save error:", error);
     }
@@ -299,16 +291,16 @@ export default function ResumeBuilder({ initialContent }) {
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">
-                    Twitter/X Profile
+                    GitHub Profile
                   </label>
                   <Input
-                    {...register("contactInfo.twitter")}
+                    {...register("contactInfo.github")}
                     type="url"
-                    placeholder="https://twitter.com/your-handle"
+                    placeholder="https://github.com/your-handle"
                   />
-                  {errors.contactInfo?.twitter && (
+                  {errors.contactInfo?.github && (
                     <p className="text-sm text-red-500">
-                      {errors.contactInfo.twitter.message}
+                      {errors.contactInfo.github.message}
                     </p>
                   )}
                 </div>
@@ -345,7 +337,7 @@ export default function ResumeBuilder({ initialContent }) {
                   <Textarea
                     {...field}
                     className="h-32"
-                    placeholder="List your key skills..."
+                    placeholder="List your key skills (comma-separated)..."
                     error={errors.skills}
                   />
                 )}
@@ -452,6 +444,7 @@ export default function ResumeBuilder({ initialContent }) {
               </span>
             </div>
           )}
+
           <div className="border rounded-lg">
             <MDEditor
               value={previewContent}
@@ -460,15 +453,107 @@ export default function ResumeBuilder({ initialContent }) {
               preview={resumeMode}
             />
           </div>
+
           <div className="hidden">
-            <div id="resume-pdf">
-              <MDEditor.Markdown
-                source={previewContent}
-                style={{
-                  background: "white",
-                  color: "black",
-                }}
-              />
+            <div id="resume-pdf" className="bg-white text-black">
+              <style>{`
+                #resume-pdf {
+                  font-family: "Times New Roman", Times, serif;
+                  background: white;
+                  color: black;
+                  font-size: 13px;
+                  line-height: 2;
+                  padding: 0;
+                  margin: 0;
+                }
+                #resume-pdf h1 {
+                  text-align: center;
+                  font-size: 26px;
+                  font-weight: bold;
+                  letter-spacing: 2px;
+                  margin: 0 0 4px;
+                  padding: 0;
+                  border: none;
+                }
+                /* Contact paragraph sits right after h1 */
+                #resume-pdf h1 + p {
+                  text-align: center;
+                  font-size: 12px;
+                  margin: 0 0 10px;
+                  color: black;
+                }
+                #resume-pdf h1 + p a {
+                  color: black;
+                  text-decoration: none;
+                }
+                #resume-pdf h2 {
+                  font-size: 13px;
+                  font-weight: bold;
+                  text-transform: uppercase;
+                  letter-spacing: 0.5px;
+                  border-bottom: 1px solid #000;
+                  margin: 8px 0 4px;
+                  padding-bottom: 2px;
+                  background: none;
+                  color: black;
+                }
+                #resume-pdf .entry {
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: flex-start;
+                  margin-top: 6px;
+                }
+                #resume-pdf .entry-left {
+                  flex: 1;
+                  min-width: 0;
+                }
+                #resume-pdf .entry-left strong {
+                  font-size: 13px;
+                  display: block;
+                  margin-bottom: 2px;
+                }
+                #resume-pdf .entry-date {
+                  white-space: nowrap;
+                  margin-left: 16px;
+                  font-size: 12px;
+                  padding-top: 1px;
+                  flex-shrink: 0;
+                }
+                #resume-pdf p {
+                  font-size: 12.5px;
+                  margin: 2px 0;
+                  color: black;
+                }
+                #resume-pdf .skills-list {
+                  font-size: 12.5px;
+                  margin: 4px 0 0 8px;
+                }
+                #resume-pdf ul {
+                  list-style: none;
+                  padding-left: 14px;
+                  margin: 4px 0 0;
+                }
+                #resume-pdf ul li {
+                  font-size: 12.5px;
+                  margin-bottom: 2px;
+                  line-height: 1.4;
+                  color: black;
+                }
+                #resume-pdf ul li::before {
+                  content: "· ";
+                }
+                #resume-pdf hr {
+                  display: none;
+                }
+                #resume-pdf a {
+                  color: black;
+                  text-decoration: none;
+                }
+              `}</style>
+
+              <ReactMarkdown rehypePlugins={[rehypeRaw]}>
+                {previewContent}
+              </ReactMarkdown>
             </div>
           </div>
         </TabsContent>

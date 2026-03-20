@@ -28,9 +28,13 @@ export const generateAIInsights = async (industry) => {
         `;
 
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: "gemini-3.1-flash-lite-preview",
     contents: prompt,
+    config: {
+      responseMimeType: "application/json",
+    },
   });
+  
   const text = response.text;
   const cleanedText = text.replace(/```(?:json)?\n?/g, "").trim();
 
@@ -63,7 +67,6 @@ export async function getIndustryInsights() {
           ...insights,
           lastUpdated: new Date(),
           nextUpdate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-          userId: user.id,
         },
       });
       return industryInsight;

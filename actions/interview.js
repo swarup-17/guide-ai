@@ -44,8 +44,11 @@ export async function generateQuiz() {
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3.1-flash-lite-preview",
       contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+      },
     });
     const text = response.text;
     const cleanedText = text.replace(/```(?:json)?\n?/g, "").trim();
@@ -102,7 +105,7 @@ export async function saveQuizResult(questions, answers, score) {
 
     try {
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-3.1-flash-lite-preview",
         contents: improvementPrompt,
       });
 

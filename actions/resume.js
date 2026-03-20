@@ -90,7 +90,7 @@ export async function improveWithAI({ current, type }) {
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3.1-flash-lite-preview",
       contents: prompt,
     });
     const improvedContent = response.text.trim();

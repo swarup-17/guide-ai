@@ -44,7 +44,7 @@ export async function generateCoverLetter(data) {
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3.1-flash-lite-preview",
       contents: prompt,
     });
     const content = response.text.trim();

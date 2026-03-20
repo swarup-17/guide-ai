@@ -16,54 +16,47 @@ export async function updateUser(data) {
   if (!user) throw new Error("User not found");
 
   try {
-    // Start a transaction to handle both operations
-    const result = await db.$transaction(
-      async (tx) => {
-        // Check if the target industry currently has insights generated
-        let industryInsight = await tx.industryInsight.findUnique({
-          where: {
-            industry: data.industry,
-          },
-        });
-
-        if (!industryInsight) {
-          // Generate new insights for the selected industry
-          const insights = await generateAIInsights(data.industry);
-
-          // Create new industry insights (shared across users in this industry)
-          industryInsight = await tx.industryInsight.create({
-            data: {
-              industry: data.industry,
-              ...insights,
-              lastUpdated: new Date(),
-              nextUpdate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-            },
-          });
-        }
-
-        // Now update the user
-        const updatedUser = await tx.user.update({
-          where: {
-            id: user.id,
-          },
-          data: {
-            name: data.name,
-            industry: data.industry,
-            experience: data.experience,
-            bio: data.bio,
-            skills: data.skills,
-          },
-        });
-
-        return { updatedUser, industryInsight };
+    let industryInsight = await db.industryInsight.findUnique({
+      where: {
+        industry: data.industry,
       },
-      {
-        timeout: 10000, // default: 5000
-      }
-    );
+    });
+
+    if (!industryInsight) {
+      const insights = await generateAIInsights(data.industry);
+
+      industryInsight = await db.industryInsight.create({
+        data: {
+          industry: data.industry,
+          ...insights,
+          lastUpdated: new Date(),
+          nextUpdate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        },
+      }).catch((e) => {
+        if (e.code === 'P2002') {
+           return db.industryInsight.findUnique({ where: { industry: data.industry }});
+        }
+        throw e;
+      });
+    }
+
+    // Now update the user
+    const updatedUser = await db.user.update({
+      where: {
+        id: user.id,
+      },
+      data: {
+        name: data.fullName,
+        industry: data.industry,
+        experience: data.experience,
+        bio: data.bio,
+        skills: data.skills,
+      },
+    });
 
     revalidatePath("/");
-    return result.updatedUser;
+    return updatedUser;
+
   } catch (error) {
     console.error("Error updating user and industry:", error.message);
     throw new Error("Failed to update profile");

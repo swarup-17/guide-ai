@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const onboardingSchema = z.object({
+  fullName: z.string().min(1, "Full name is required"),
   industry: z.string({
     required_error: "Please select an industry",
   }),

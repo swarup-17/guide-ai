@@ -90,11 +90,11 @@ const OnboardingForm = ({ industries }) => {
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
+              <Label htmlFor="fullName">Full Name</Label>
               <Input
-                id="name"
+                id="fullName"
                 placeholder="Enter your full name"
-                {...register("name")}
+                {...register("fullName")}
               />
               {errors.fullName && (
                 <p className="text-sm text-red-500">
